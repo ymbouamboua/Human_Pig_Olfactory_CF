@@ -19,7 +19,7 @@ dir.data = file.path(dir.main, "data")
 h5.mtx <- "filtered_feature_bc_matrix.h5"
 file.name <- list("G3_M2_M9","G1_M7_M10","M1_M5_M6","D571_572_573","D574_575_576_577")
 dir.results <- file.path(dir.main, paste0("000-preprocessing"))
-result.folders <- list("rdata","seurat_data", "tables", "plots", "markers","markers_durante")
+result.folders <- list("rdata","seurat_data", "tables", "plots")
 
 dir.path <- c()
 for (folder in result.folders) {
@@ -50,3 +50,306 @@ suppressPackageStartupMessages({
 source(file.path("/data/data_mbouamboua/utils/00-import.R"))
 
 ```
+
+
+
+## Create seurat object
+
+
+```{r}
+
+for (i in 1:length(file.name)) {
+  message("Create", file.name[[i]], "seurat object")
+  scmat <- Read10X_h5(file.path(dir.data, file.name[[i]], h5.mtx))
+  sobj <- CreateSeuratObject(counts = scmat, project = file.name[[i]])
+  message("Save", file.name[[i]], "seurat object")
+  saveRDS(sobj, file.path(dir.results, "/seurat_data/", filename = paste0(file.name[[i]], ".rds")))
+}
+
+```
+
+
+## Demultiplexing: add demuxafy souporcell+vireo+scds combined results
+
+```{r}
+
+seurat.list <- list()
+
+for (i in 1:length(file.name)) {  
+  
+  file_path = list.files(path = file.path(dir.results, "/seurat_data/"), pattern =  paste0(file.name[[i]], ".rds"), full.names = T, recursive = F)
+  sobj <- readRDS(file_path)
+  dmx <- read.delim(file.path(dir.main, "WS_demuxafy/", file.name[[i]],"combine_majoritySinglet/combined_results_w_combined_assignments.tsv"))
+  dmx$barcode_seurat = dmx$Barcode
+  rownames(dmx) <- dmx$barcode_seurat
+  seurat.list[[file.name[[i]]]] <- AddMetaData(sobj, dmx)
+  seurat.list[[file.name[[i]]]][['donor']] <- paste0(seurat.list[[file.name[[i]]]]@meta.data$MajoritySinglet_Individual_Assignment,"_", seurat.list[[file.name[[i]]]]@meta.data[,"orig.ident"])  
+  rm(sobj)
+}
+
+unique(seurat.list[[1]]@meta.data)
+
+```
+
+
+
+
+## Add metadata
+
+```{r}
+
+seurat.list[["G1_M7_M10"]][["kaftrio"]]=""
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0","donor1","donor2"),"kaftrio"] <-"Yes"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"kaftrio"] <-"doublet"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"kaftrio"] <-"unassigned"
+
+seurat.list[["G1_M7_M10"]][["sample"]]=""
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"M10"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"M7"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"G1"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
+seurat.list[["G1_M7_M10"]]@meta.data[seurat.list[["G1_M7_M10"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"sample"] <-"unassigned"
+
+seurat.list[["G3_M2_M9"]][["kaftrio"]]=""
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"kaftrio"] <-"No"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1","donor2"),"kaftrio"] <-"Yes"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"kaftrio"] <-"doublet"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"kaftrio"] <-"unassigned"
+
+seurat.list[["G3_M2_M9"]][["sample"]]=""
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"M9"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"G3"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"M2"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
+seurat.list[["G3_M2_M9"]]@meta.data[seurat.list[["G3_M2_M9"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"sample"] <-"unassigned"
+
+seurat.list[["M1_M5_M6"]][["kaftrio"]]=""
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0","donor2"),"kaftrio"] <-"Yes"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"kaftrio"] <-"No"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"kaftrio"] <-"doublet"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"kaftrio"] <-"unassigned"
+
+seurat.list[["M1_M5_M6"]][["sample"]]=""
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"D0.M1.M5"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"M6"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"D2.M1.M5"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
+seurat.list[["M1_M5_M6"]]@meta.data[seurat.list[["M1_M5_M6"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"sample"] <-"unassigned"
+
+seurat.list[["D571_572_573"]][["kaftrio"]]=""
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0","donor1","donor2"),"kaftrio"] <-"No"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"kaftrio"] <-"doublet"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"kaftrio"] <-"unassigned"
+
+seurat.list[["D571_572_573"]][["sample"]]=""
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"D571"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"D572"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"D573"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
+seurat.list[["D571_572_573"]]@meta.data[seurat.list[["D571_572_573"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"sample"] <-"unassigned"
+
+seurat.list[["D574_575_576_577"]][["kaftrio"]]=""
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0","donor1","donor2","donor3"),"kaftrio"] <-"No"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"kaftrio"] <-"doublet"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"kaftrio"] <-"unassigned"
+
+seurat.list[["D574_575_576_577"]][["sample"]]=""
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor0"),"sample"] <-"D574"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor1"),"sample"] <-"D575"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor2"),"sample"] <-"D576"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("donor3"),"sample"] <-"D577"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("doublet"),"sample"] <-"doublet"
+seurat.list[["D574_575_576_577"]]@meta.data[seurat.list[["D574_575_576_577"]]@meta.data$MajoritySinglet_Individual_Assignment %in% c("unassigned"),"sample"] <-"unassigned"
+
+```
+
+
+
+# Plot demuxafy summary
+
+```{r fig.width=6, fig.height=6}
+
+plot_list <- list()
+
+for (i in 1:length(file.name)) {
+  
+Idents(seurat.list[[file.name[[i]]]]) <- "sample"
+stats <- Cluster_Stats(seurat.list[[file.name[[i]]]], group.by.var = "orig.ident", remove_total = T)
+
+plot_list[[i]] <- ggplot(data = stats, mapping = aes(x = reorder(Cluster, -Number, decreasing = T), y = Number, fill = Cluster)) + 
+  geom_bar(stat = "identity", fill = "#5694C7") + 
+  theme_bw() +
+  geom_text(aes(label = Number), vjust = -0.5, size=3) +
+  ylim(0, max(stats$Number*1.1))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, colour = "black",size = 10),
+        axis.text.y = element_text(colour = "black", size = 10),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(hjust = 0.5, vjust = 2, size = 10, face = "bold"),
+        legend.position = "none") + 
+  labs(title = paste0(file.name[[i]]),
+       x = "",
+       y = "Number of cells")
+}
+
+combined_plot <- patchwork::wrap_plots(plotlist = plot_list, guide = "collect", axes = "collect_y", axis_titles = "collect", ncol = 3)
+print(combined_plot)
+save_plot(plot = combined_plot, filename = file.path(dir.results, "plots/demuxafy"), width = 6, height = 6, formats = c("pdf","png"))
+
+```
+
+
+# Remove unassigned and doublet cells
+
+```{r}
+
+for (i in 1:length(seurat.list)) {
+  
+  Idents(seurat.list[[i]]) <- "MajoritySinglet_Individual_Assignment"
+  seurat.list[[i]]@meta.data$MajoritySinglet_Individual_Assignment <- 
+    seurat.list[[i]]@meta.data$MajoritySinglet_Individual_Assignment %>% tidyr::replace_na('doublet')
+  unique(seurat.list[[i]]$MajoritySinglet_Individual_Assignment)
+  idents <- unique(seurat.list[[i]]$MajoritySinglet_Individual_Assignment)
+  idents <- setdiff(idents, c("unassigned", "doublet"))
+  seurat.list[[i]] <- subset(seurat.list[[i]], idents = idents, invert = FALSE)
+  print(unique(seurat.list[[i]]$MajoritySinglet_Individual_Assignment))
+  
+}
+
+```
+
+
+# Plot QC metrics of unfiltered seurat data
+
+```{r fig.width=5, fig.height=4}
+
+merged <- merge(x = seurat.list[[1]], y = seurat.list[2:length(seurat.list)], merge.data = TRUE)
+merged <- PercentageFeatureSet(object = merged, pattern = "^MT-", col.name = "percent_mito")
+merged@meta.data
+
+Idents(merged) <- "sample"
+p <- VlnPlot(object = merged, features = c("nCount_RNA","nFeature_RNA","percent_mito")) + NoLegend()
+print(p)
+save_plot(plot = p, filename = file.path(dir.results, "plots/preQC_metrics"), width = 5, height = 2, formats = c("pdf","png"))
+
+```
+
+
+# Filter low quality cells
+
+```{r}
+
+object_list <- list()
+object_list <- SplitObject(object = merged, split.by = "sample")
+
+results <- Run_Quality_Control(seurat_input = object_list, 
+                               min_features = 200, 
+                               max_mito = 5, 
+                               filter_method = "none", 
+                               filter_max_counts = F,
+                               filter_doublets = F,
+                               dir_results = file.path(dir.results))
+
+```
+
+# Plot QC metrics of filtered seurat data
+
+```{r fig.width=5, fig.height=2}
+
+seurat.list <- list()
+seurat.list <- results$seurat_list
+merged <- merge(x = seurat.list[[1]], y = seurat.list[2:length(seurat.list)], merge.data = TRUE)
+rm(seurat.list)
+Idents(merged) <- "sample"
+p <- VlnPlot(object = merged, features = c("nCount_RNA","nFeature_RNA","percent_mito")) + NoLegend()
+print(p)
+save_plot(plot = p, filename = file.path(dir.results, "plots/postQC_metrics"), width = 5, height = 2, formats = c("pdf","png"))
+
+```
+
+
+# Seurat rPCA integration
+
+```{r fig.width=8, fig.height=6}
+
+seurat.list <- list()
+seurat.list <- results$seurat_list
+merged <- merge(x = seurat.list[[1]], y = seurat.list[2:length(seurat.list)], merge.data = TRUE)
+seurat.list <- list()
+seurat.list <- SplitObject(object = merged, split.by = "orig.ident")
+rm(merged)
+
+invisible(gc())
+seurat.list <- lapply(X = seurat.list, FUN = function(x) {
+    x <- NormalizeData(x)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 5000)
+})
+
+invisible(gc())
+features <- SelectIntegrationFeatures(object.list = seurat.list)
+seurat.list <- lapply(X = seurat.list, FUN = function(x) {
+    x <- ScaleData(x, features = features, verbose = FALSE)
+    x <- RunPCA(x, features = features, verbose = FALSE)
+})
+
+
+invisible(gc())
+anchors <- FindIntegrationAnchors(object.list = seurat.list, anchor.features = features, reduction = "rpca")
+rm(seurat.list)
+obj <- IntegrateData(anchorset = anchors)
+rm(anchors)
+
+obj <- FindVariableFeatures(obj, assay = "RNA", nfeatures = 5000)
+features <- VariableFeatures(obj, assay = "RNA")
+DefaultAssay(obj) <- "integrated"
+obj <- ScaleData(obj)
+obj <- RunPCA(obj, npcs = 30, features = features)
+obj <- RunUMAP(obj, reduction = "pca", dims = 1:30, min.dist = 1.5)
+obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30)
+obj <- FindClusters(obj, resolution = c(0.5))
+
+invisible(gc())
+saveRDS(obj, file.path(dir.results, "rdata/integrated.rds"))
+
+DefaultAssay(obj) <- "RNA"
+Dim_Plot(object = obj, group.by = "seurat_clusters", label.show = T, legend = T, theme.bw = F,figure.plot = T, pt.size = 0.5)
+
+```
+
+
+# Check cell clusters quality
+
+```{r}
+
+VlnPlot(object = obj, features = c("nCount_RNA","nFeature_RNA","percent_mito")) + NoLegend()
+
+```
+
+
+
+# Remove low quality cell cluster
+The cluster 4 is low quality cells.
+
+```{r fig.width=10, fig.height= 7}
+
+Idents(obj) <- "seurat_clusters"
+obj <- subset(obj, idents = c(4), invert = TRUE)
+
+DefaultAssay(obj) <- "integrated"
+obj <- ScaleData(obj)
+obj <- RunPCA(obj, npcs = 30)
+obj <- RunUMAP(obj, reduction = "pca", dims = 1:15, min.dist = 2.5)
+obj <- FindNeighbors(obj, reduction = "pca", dims = 1:20)
+obj <- FindClusters(obj, resolution = c(1.5))
+Dim_Plot(obj, group.by = "seurat_clusters", label.show = T, pt.size = 1)
+saveRDS(obj, file.path(dir.results, "rdata/integrated.rds"))
+
+```
+
+
+```{r session_info}
+
+utils::capture.output(devtools::session_info())
+
+```
+
+
