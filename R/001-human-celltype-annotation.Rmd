@@ -1,5 +1,5 @@
 ---
-title: "Cell type annotation"
+title: "10X Adult Human Olfactory - Cell type annotation"
 author: "Mbouamboua Yvon<BR>mbouamboua@ipmc.cnrs.fr"
 output:
   html_notebook:
@@ -33,7 +33,7 @@ for (folder in result.folders) {
 
 ```{r}
 
-obj <- readRDS(file.path(dir.main, "000-proprocessing/rdata/rdata/integrated.rds"))
+obj <- readRDS(file.path(dir.main, "000-proprocessing/rdata/integrated.rds"))
 
 ```
 
@@ -234,7 +234,7 @@ neutro.cells <- WhichCells_Gene_Expressions(obj, idents = c(19), group.by = "seu
 ```
 
 
-# Label transfert
+# Assigning label on seurat clusters
 
 ```{r }
 obj@meta.data$celltype <- NULL
@@ -271,12 +271,35 @@ obj@meta.data[obj@meta.data$sample %in% c("M2","M7","M10","D0.M1.M5","D2.M1.M5")
 
 ```
 
+# Define colors
+
+```{r}
+
+custom_colors <- list()
+
+custom_colors$group <- c("CTRL"="#5d6d7e","KAFTRIO"="#c14e04","CF"="#8665f8")
+
+custom_colors$sample <- c("G1"= "#2e4053", "G3"= "#525252" ,"D571"="#737373","D572"= "#969696","D573"= "#BDBDBD",
+"D574" = "#5d6d7e","D575" =  "#95a5a6","D576" = "#bfc9ca","D577" = "#D9D9D9", "M9"="#d3c2fc","M6"="#b498fa",
+"M2"="#8C2D04","M7"="#D94801","M10"="#F16913","D0.M1.M5"="#FD8D3C","D2.M1.M5"="#FDAE6B")
+
+custom_colors$celltype = c("Deuterosomal"="#3498db",  "Resp. multiciliated" ="#1f618d", "Olf. HBCs" ="#e7cea3", "Resp. HBCs" = "#E41A1C",  "Cycling basal" = "#C2A523","Suprabasal"="#f39c12","Goblet"="#239b56", "Club"="#8cb565","Tuft" = "#eb10fd","Ionocyte" = "#943126", "T cells" = "#6B27E3", "NK cells" = "#84acbe","GBCs" = "#F48B5A", "Bowman's gland" = "#ad973e", "OSNs"="#18DED2", "Sustentaculars" = "#FB9A99","Neutrophils" = "#efdef9", "B cells" = "#8e2c72", "Macrophages" = "#BC6399","Monocytes" = "#7b4a8f", "pDCs" = "#AB674F")
+
+custom_colors$phase <- c("G1"="#9CD4FA", "G2M"="#F04A26", "S"="#90301B")
+
+obj@misc$colors <- custom_colors
+
+```
+
+
 # Plot UMAPs
 
 ```{r }
-DimPlot(object = obj, group.by = "sample", labels = F)
-DimPlot(object = obj, group.by = "group", labels = F)
-DimPlot(object = obj, group.by = "celltype", labels = T)
+
+DimPlot(object = obj, group.by = "sample", labels = F, cols = custom_colors$sample)
+DimPlot(object = obj, group.by = "group", labels = F, cols = custom_colors$group)
+DimPlot(object = obj, group.by = "celltype", labels = T, cols = custom_colors$celltype)
+
 ```
 
 

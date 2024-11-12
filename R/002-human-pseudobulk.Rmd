@@ -1,0 +1,99 @@
+---
+title: "10X Adult Human Olfactory - Pseudobulk DGE"
+author: "Mbouamboua Yvon<BR>mbouamboua@ipmc.cnrs.fr"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+date: 'Last update: `r format(Sys.time())`'
+---
+
+# Defining working directory and subfolders
+
+```{r }
+
+dir.main = "/data/data_mbouamboua/projects/human_olfactory_cf"
+dir.results <- file.path(dir.main, paste0("002-pseudobulk"))
+result.folders <- list("tables", "plots")
+
+dir.path <- c()
+for (folder in result.folders) {
+  dir.path[folder] <- file.path(dir.results, folder)
+  if(!dir.exists(dir.path[folder])){
+   dir.create(dir.path[folder], showWarnings = FALSE, recursive = TRUE) 
+  }
+}
+
+```
+
+
+# Load integrated data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "001-annotation/rdata/human_olfactory_cf.rds"))
+
+```
+
+# Filter data for DE analyse
+
+```{r}
+
+DefaultAssay(obj) <- "RNA"
+Idents(obj) <- "sample"
+sub <- subset(obj, idents = c("M6","M9","G1","G3","D571","D572","D573","D574", "D575","D576","D577"))
+sub <- Filter_Quality(object = sub, min_cells_per_gene = 3, min_genes_per_cell = 100, min_reads_per_gene=2, min_expression_level = 1, apply_max_genes_filter = F)
+
+```
+
+# Run pseudobulk DE analysis
+
+```{r }
+
+pb_res <- Run_Libra_Pseudobulk(seurat_obj = sub, ident_col = "celltype", sample_col = "sample_order", 
+                               label_col = "group", label_levels = c("CF", "CTRL"), de_method = "edgeR", 
+                               de_type = "LRT", p_val_threshold = 0.05, group1_pattern = "CF", 
+                               group2_pattern = "CTRL",min_samples_gene = 1)
+
+saveRDS(pb_res, file.path(dir.results, "tables/edgeR_LRT_CF_vs_CTRL.rds"))
+
+```
+
+## Upset plot
+
+```{r }
+
+p <- Custom_Upsetplot(pb_res$upset_genes, 
+                      text_size = 10, width_ratio=0.2, min_size=5,
+                      plot_title = "DE pseudobulk CF vs. CTRL")
+print(p)
+save_plot(p, file.path(dir.results, "plots/edgeR_LRT_upsetplot"), formats = c("png", "pdf"), width = 7, height = 4)
+
+```
+
+
+## Volcanoplot + Heatmap
+
+```{r }
+
+group.colors <- c("CTRL"="#269BCF","CF"="#DD5D74")
+sample.colors <- sub@misc$colors$sample[unique(sub$sample_order)]
+
+DE_Pseudobulk_Volcanoplot_Heatmap(DE = pb_res$DE, matrices = pb_res$matrices, n_lab = 50, anno_legend = F,
+                                  group1_pattern = "CF", group2_pattern = "CTRL",
+                        custom_annotation_colors = list(Samples = sample.colors, Groups = group.colors),
+                        legend = T,show.rownames = T, show.colnames = F, width = 8, height = 8, min_samples_gene = 2,
+                        base_size = 10, out_dir = file.path(dir.results, "volcano_heatmap_egdeR_RLT/"), color_palette = c("#269BCF", "white", "#DD5D74"),
+)
+
+```
+
+
+
+```{r session_info}
+
+utils::capture.output(devtools::session_info())
+
+```
