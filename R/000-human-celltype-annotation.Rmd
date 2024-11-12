@@ -1,0 +1,315 @@
+---
+title: "Cell type annotation"
+author: "Mbouamboua Yvon<BR>mbouamboua@ipmc.cnrs.fr"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+date: 'Last update: `r format(Sys.time())`'
+---
+
+# Defining working directory and subfolders
+
+```{r }
+
+dir.main = "/data/data_mbouamboua/projects/human_olfactory_cf"
+dir.results <- file.path(dir.main, paste0("001-annotation"))
+result.folders <- list("rdata", "tables", "plots")
+
+dir.path <- c()
+for (folder in result.folders) {
+  dir.path[folder] <- file.path(dir.results, folder)
+  if(!dir.exists(dir.path[folder])){
+   dir.create(dir.path[folder], showWarnings = FALSE, recursive = TRUE) 
+  }
+}
+
+```
+
+
+# Load integrated data
+
+```{r}
+
+obj <- readRDS(file.path(dir.main, "000-proprocessing/rdata/rdata/integrated.rds"))
+
+```
+
+
+# Gene markers identification
+
+```{r }
+
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+Idents(obj) <- "seurat_clusters"
+markers <- FindAllMarkers(obj, only.pos = T)
+write.table(markers, file.path(dir.results, "tables/seurat_markers.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(dir.results, "tables/seurat_markers.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+Idents(obj) <- "seurat_clusters"
+p <- DotPlot(obj, features = rev(top$gene))
+print(p) 
+save_plot(p, filename = file.path(dir.results, "tables/dotplot_seurat_markers"),  width = 8, height = 14, formats = c("pdf","png"))     
+
+```
+
+
+# Plot markers from Durante et al, 2020
+
+```{r fig.width=8, fig.height=5}
+
+CD8T  = c("CD3D", "CD3E", "CD8A") 
+CD4T = c("CD3D", "CD3E", "CD4", "IL7R")
+NK = c("FGFBP2", "FCG3RA", "CX3CR1")
+Bcells = c("CD19", "CD79A", "MS4A1")
+Plasma = c("IGHG1", "MZB1", "SDC1", "CD79A","JCHAIN")
+Monocytes = c("CD14", "S100A12", "CLEC10A") 
+Macrophages = c("C1QA", "C1QB", "C1QC")
+Dendritic = c("CD1C","C1QA", "C1QB", "C1QC")
+Mast = c("TPSB2", "TPSAB1","KIT")
+Fibroblasts_Stromal = c("LUM", "DCN", "CLEC11A")
+Respiratory_Ciliated = c("FOXJ1", "CFAP126", "STOMl3")
+Respiratory_HBCs =c ("KRT5", "TP63", "SOX2")
+Respiratory_Gland_Progenitor = c("SOX9", "SCGB1A1")
+Respiratory_Secretory = c("MUC5", "CYP4B1", "TFF3")
+Vascular_SMC = c("TAGLN", "MYH11")
+Pericytes = c("SOX17", "ENG")
+Bowman_Gland = c("SOX9", "SOX10", "MUC5", "GPX3")
+Olfactory_HBCs = c("TP63", "KRT5", "CXCL14", "SOX2", "MEG3","LIMA1","JUN","GPM6A","DST","IGFBP5")
+Olfactory_Ensheathing = c("S100B", "PLP1", "PMP2", "MPZ", "ALX3")
+Olfactory_Microvillar = c("ASCL3", "CFTR", "HEPACAM2", "FOXL1")
+iOSNs = c("GNG8", "OLIG2", "EBF2", "LHX2", "CBX8")
+mOSNs = c("GNG13", "EBF2", "CBX8", "RTP1")
+GBCs = c("HES6", "ASCL1", "CXCR4", "SOX2", "EZH2", "NEUROD1", "NEUROG1")
+Sustentacular = c("CYP2A13", "CYP2J2", "GPX6", "ERMN", "SOX2")
+
+DefaultAssay(obj) <- "RNA"
+Idents(obj) <- "seurat_clusters"
+
+invisible(gc())
+p1 <- Average_Signature(obj, features = iOSNs, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "iOSNs")
+p2 <- Dot_Plot(obj, features = iOSNs, flip.axes = T, dot.scale = 6, theme.bw = F, base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/iOSNs"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = mOSNs, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "mOSNs")
+p2 <- Dot_Plot(obj, features = mOSNs, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/mOSNs"), width = 8, height = 4, formats = c("pdf","png"))
+
+p1 <- Average_Signature(obj, features = Sustentacular, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Sustentacular")
+p2 <- Dot_Plot(obj, features = Sustentacular, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Sus"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Plasma, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Plasma")
+p2 <- Dot_Plot(obj, features = Plasma, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Plasma"), width = 8, height = 4, formats = c("pdf","png"))
+
+p1 <- Average_Signature(obj, features = Dendritic,plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Dendritic")
+p2 <- Dot_Plot(obj, features = Dendritic, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/DC"), width = 8, height = 4, formats = c("pdf","png"))
+
+invisible(gc())
+
+p1 <- Average_Signature(obj, features = Fibroblasts_Stromal, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Fibroblasts_Stromal")
+p2 <- Dot_Plot(obj, features = Fibroblasts_Stromal, flip.axes = T, dot.scale = 6, theme.bw = F, base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.50)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Fibroblasts_Stromal"), width = 8, height = 4, formats = c("pdf","png"))
+
+p1 <- Average_Signature(obj, features = NK, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "NK")
+p2 <- Dot_Plot(obj, features = NK, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/NK"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Bcells, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Bcells")
+p2 <- Dot_Plot(obj, features = Bcells, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Bcells"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Monocytes, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Monocytes")
+p2 <- Dot_Plot(obj, features = Monocytes, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/monocyte"),width = 8, height = 4, formats = c("pdf","png"))
+
+p1 <- Average_Signature(obj, features = Mast, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Mast")
+p2 <- Dot_Plot(obj, features = Mast, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/mast"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Macrophages, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Macrophage")
+p2 <- Dot_Plot(obj, features = Macrophages, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/macrophage"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Respiratory_Ciliated,plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Respiratory_Ciliated")
+p2 <- Dot_Plot(obj, features = Respiratory_Ciliated, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Respiratory_Ciliated"), width = 8, height = 4, formats = c("pdf","png"))
+
+p1 <- Average_Signature(obj, features = Respiratory_Secretory, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Respiratory_Secretory")
+p2 <- Dot_Plot(obj, features = Respiratory_Secretory, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Respiratory_Secretory"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Respiratory_Gland_Progenitor, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Respiratory_Gland_Progenitor")
+p2 <- Dot_Plot(obj, features = Respiratory_Gland_Progenitor, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Respiratory_Gland_Progenitor"),width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Olfactory_Ensheathing, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Olfactory_Ensheathing")
+p2 <- Dot_Plot(obj, features = Olfactory_Ensheathing, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Olfactory_Ensheathing"), width = 8, height = 4, formats = c("pdf","png"))
+
+invisible(gc())
+
+p1 <- Average_Signature(obj, features = c(Bowman_Gland,"TCN1","LCN15","LTF","PDCSP","GZ16B","NCOA7","CEBPD"), plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Bowman_Gland")
+p2 <- Dot_Plot(obj, features = c(Bowman_Gland,"TCN1","LCN15","LTF","PDCSP","GZ16B","NCOA7","CEBPD"), flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Bowman_Gland"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Olfactory_Microvillar,plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Olfactory_Microvillar")
+p2 <- Dot_Plot(obj, features = Olfactory_Microvillar, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Olfactory_Microvillar"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = CD8T, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "CD8T")
+p2 <- Dot_Plot(obj, features = CD8T, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/CD8T.pdf"),  width = 8, height = 5)
+
+invisible(gc())
+
+p1 <- Average_Signature(obj, features = CD4T, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "CD4T")
+p2 <- Dot_Plot(obj, features = CD4T, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/CD4T"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = Olfactory_HBCs, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Olfactory_HBCs")
+p2 <- Dot_Plot(obj, features = Olfactory_HBCs, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Olfactory_HBCs.pdf"), width = 8, height = 5,formats = c("pdf","png"))
+
+invisible(gc())
+
+p1 <- Average_Signature(obj, features = Respiratory_HBCs, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE, plot_title = "Respiratory_HBCs")
+p2 <- Dot_Plot(obj, features = Respiratory_HBCs, flip.axes = T, dot.scale = 6, theme.bw = F, base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.50)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/Respiratory_HBCs"), width = 8, height = 4, formats = c("pdf","png"))
+
+
+p1 <- Average_Signature(obj, features = GBCs, plot_method = "ViolinPlot", title_y = "Gene set score", angle_x = 0, vjust_x = 1, hjust_x = 0.5, remove_axis_x_text = TRUE,plot_title = "GBCs")
+p2 <- Dot_Plot(obj, features = GBCs, flip.axes = T, dot.scale = 6, theme.bw = F,  base.size = 12, angle.x = 0, vjust.x = 1, hjust.x = 0.5)
+p1+p2+plot_layout(ncol = 1)
+save_plot(plot = p1+p2+plot_layout(ncol = 1), filename = file.path(dir.results, "markers_durante/GBCs"), width = 8, height = 4, formats = c("pdf","png"))
+
+```
+
+
+# Which cells expressing genes for NK, Tuft and Neutrophils
+
+```{r}
+
+NK.cells <- WhichCells_Gene_Expressions(obj, idents = c(8), group.by = "seurat_clusters", features = c("NKG7","SPON2","GZM2"), min.expr = 2)
+tuft.cells <- WhichCells_Gene_Expressions(obj, idents = c(16), group.by = "seurat_clusters", features = c("ASCL2","POU2F3"), min.expr = 1.5)
+neutro.cells <- WhichCells_Gene_Expressions(obj, idents = c(19), group.by = "seurat_clusters", features = c("FCGR3B", "CXCL8","FCAR", "CXCR2"), min.expr = 2)
+
+```
+
+
+# Label transfert
+
+```{r }
+obj@meta.data$celltype <- NULL
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(17),"celltype"] <-"Deuterosomal" # CDC20B
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(0,1,5,11,12,13,14,20,21),"celltype"] <-"Resp. multiciliated" # FOXJ1
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(9,15),"celltype"] <- "Goblet" # MUC5AC
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(6,10,30),"celltype"] <- "Club" # SCGB1A1
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(2,7),"celltype"] <- "Suprabasal" # "SERPINB4","NOTCH3"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(31),"celltype"] <-"OSNs" # GNG8
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(22),"celltype"] <-"GBCs" # HES6, SOX2, EZH2
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(18),"celltype"] <- "Sustentaculars"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(16),"celltype"] <- "Ionocyte" # CFTR
+obj@meta.data[rownames(obj@meta.data) %in% tuft.cells,"celltype"] <- "Tuft"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(24),"celltype"] <-"Resp. HBCs"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(3,4,26),"celltype"] <-"Olf. HBCs"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(29),"celltype"] <-"Bowman's gland"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(8,28),"celltype"] <- "T cells"
+obj@meta.data[rownames(obj@meta.data) %in% NK.cells,"celltype"] <- "NK cells"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(27),"celltype"] <- "B cells"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(23),"celltype"] <- "pDCs" # "SCT","SMPD3","LILRA4"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(25),"celltype"] <- "Macrophages"
+obj@meta.data[obj@meta.data$seurat_clusters %in% c(19),"celltype"] <- "Monocytes"
+obj@meta.data[rownames(obj@meta.data) %in% neutro.cells,"celltype"] <- "Neutrophils"
+
+# Order samples
+obj$sample_order <- factor(obj$sample, levels = c("G1", "G3","D571","D572","D573","D574","D575","D576",
+                                                  "D577","M6","M9","M2","M7","M10","D0.M1.M5","D2.M1.M5"))
+
+# Add groups
+obj@meta.data$group <- NULL
+obj@meta.data[obj@meta.data$sample %in% c("G1", "G3","D571","D572","D573","D574","D575","D576","D577"),"group"] <-"CTRL"
+obj@meta.data[obj@meta.data$sample %in% c("M6","M9"),"group"] <-"CF"
+obj@meta.data[obj@meta.data$sample %in% c("M2","M7","M10","D0.M1.M5","D2.M1.M5"),"group"] <-"KAFTRIO"
+
+```
+
+# Plot UMAPs
+
+```{r }
+DimPlot(object = obj, group.by = "sample", labels = F)
+DimPlot(object = obj, group.by = "group", labels = F)
+DimPlot(object = obj, group.by = "celltype", labels = T)
+```
+
+
+# Cell type markers identification
+
+```{r }
+
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+Idents(obj) <- "celltype"
+markers <- FindAllMarkers(obj, only.pos = T)
+write.table(markers, file.path(dir.results, "tables/celltype_markers.tsv"), sep = "\t", row.names = F, quote = F)
+markers <- read.delim(file.path(dir.results, "tables/celltype_markers.tsv"))
+top <- markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_log2FC)
+Idents(obj) <- "celltype"
+p <- DotPlot(obj, features = rev(top$gene))
+print(p) 
+save_plot(p, filename = file.path(dir.results, "tables/dotplot_celltype_markers"),  width = 8, height = 14, formats = c("pdf","png"))     
+
+```
+
+
+# Save annotated data
+
+```{r }
+
+saveRDS(obj, file.path(dir.results, "rdata/human_olfactory_cf.rds"))
+
+```
+
+
+```{r session_info}
+
+utils::capture.output(devtools::session_info())
+
+```
