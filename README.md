@@ -1,6 +1,6 @@
 # Cystic fibrosis alters the structure of the olfactory epithelium and the expression of olfactory receptors affecting odor perception
 
-# Abstact
+# Abstract
 A reduced sense of smell is a common condition in people with cystic fibrosis (CF) that negatively
 impacts their quality of life. While often attributed to nasal mucosa inflammation, the underlying
 causes of the olfactory loss remain unknown. Here, we characterized gene expression in olfactory
