@@ -1,6 +1,6 @@
 ---
-title: "Pig Preprocessing"
-author: "Mbouamboua Yvon<BR>mbouamboua@ipmc.cnrs.fr"
+title: "10X Pig Olfactory - Preprocessing"
+author: "Author: Mbouamboua Yvon<BR>mbouamboua@ipmc.cnrs.fr"
 output:
   html_notebook:
     fig_caption: yes
@@ -10,16 +10,21 @@ output:
 date: 'Last update: `r format(Sys.time())`'
 ---
 
-# Defining working directory and subfolders
+## Setup
 
-```{r setup}
+```{r setup, warning=FALSE, message=FALSE, error=FALSE}
 
+invisible(gc())
+options(future.globals.maxSize = 80000*1024^2)
+knitr::opts_chunk$set(warning = FALSE, results = TRUE, message = FALSE, comment = "")
 dir.main = "/data/data_mbouamboua/projects/pig_olfactory_cf"
 dir.data = file.path(dir.main, "data")
-h5.mtx <- "filtered_feature_bc_matrix.h5"
-file.name <- list("G3_M2_M9","G1_M7_M10","M1_M5_M6","D571_572_573","D574_575_576_577")
+#h5_mtx <- "filtered_feature_bc_matrix.h5"
+#mtx <- "filtered_feature_bc_matrix"
+mtx <- "raw_feature_bc_matrix"
+file.name <- list("WT","KO")
 dir.results <- file.path(dir.main, paste0("000-preprocessing"))
-result.folders <- list("rdata","seurat_data", "tables", "plots")
+result.folders <- list("rdata","seurat_data","raw_seurat_data", "tables", "plots", "markers","markers_durante")
 
 dir.path <- c()
 for (folder in result.folders) {
@@ -28,5 +33,179 @@ for (folder in result.folders) {
    dir.create(dir.path[folder], showWarnings = FALSE, recursive = TRUE) 
   }
 }
+source(file.path("/data/data_mbouamboua/Rpkgs/Rpkgs.R"))
+source(file.path("/data/data_mbouamboua/utils/functions.R"))
 
 ```
+
+
+## Create seurat object
+
+
+```{r}
+
+for (i in 1:length(file.name)) {
+  message("Create", file.name[[i]], "seurat object")
+  #scmat <- Read10X_h5(file.path(dir.data, file.name[[i]], h5_mtx))
+  scmat <- Read10X(file.path(dir.data, file.name[[i]], mtx))
+  sobj <- CreateSeuratObject(counts = scmat, project = file.name[[i]])
+  message("Save", file.name[[i]], "seurat object")
+  saveRDS(sobj, file.path(dir.results, "/raw_seurat_data/", filename = paste0(file.name[[i]], ".rds")))
+}
+
+
+seurat.list <- list()
+
+for (i in 1:length(file.name)) {  
+  file_path = list.files(path = file.path(dir.results, "/raw_seurat_data/"), pattern =  paste0(file.name[[i]], ".rds"), full.names = T, recursive = F)
+  sobj <- readRDS(file_path)
+  seurat.list[[file.name[[i]]]] <- sobj
+  rm(sobj)
+}
+
+merged <- merge(x = seurat.list[[1]], y = seurat.list[2:length(seurat.list)], merge.data = TRUE)
+dim(merged)
+saveRDS(merged, file.path(dir.results, "rdata/raw_merged.rds"))
+
+```
+
+
+
+```{r}
+
+seurat.list <- list()
+
+for (i in 1:length(file.name)) {  
+  file_path = list.files(path = file.path(dir.results, "/seurat_data/"), pattern =  paste0(file.name[[i]], ".rds"), full.names = T, recursive = F)
+  sobj <- readRDS(file_path)
+  seurat.list[[file.name[[i]]]] <- sobj
+  rm(sobj)
+}
+
+head(seurat.list[[1]]@meta.data)
+head(seurat.list[[2]]@meta.data)
+
+```
+
+
+
+# Filter quality cells
+
+```{r}
+
+mito.genes <- c('ATP6','ATP8','COX1','COX2','COX3','CYTB','ND1','ND2','ND3','ND4','ND4L','ND5','ND6')
+
+results <- Run_Quality_Control(seurat_list = seurat.list,
+                               min_features = 200,
+                               mito_genes = mito.genes,
+                               max_mito = 5,
+                               filter_method = "MAD",
+                               filter_doublets = T,
+                               dir_results = file.path(dir.results))
+
+dim(results$seurat_list[[1]])
+dim(results$seurat_list[[2]])
+
+```
+
+## Plot filtered seurat data
+
+```{r fig.width=5, fig.height=4}
+
+seurat_merged <- merge(x = results$seurat_list[[1]], y = results$seurat_list[2:length(results$seurat_list)], merge.data = TRUE)
+
+Idents(seurat_merged) <- "orig.ident"
+p <- Stacked_VlnPlot(object = seurat_merged, features = c("nCount_RNA","nFeature_RNA","percent_mito"),angle.x = 90, pt.size = 0.005,base.size = 12)
+print(p)
+save_plot(plot = p, filename = file.path(dir.results, "plots/postQC_metrics"), width = 5, height = 4, formats = c("pdf","png"))
+
+```
+
+
+
+# Seurat rPCA integration
+
+```{r fig.width=8, fig.height=6}
+
+invisible(gc())
+seurat.list <- lapply(X = seurat.list, FUN = function(x) {
+    x <- NormalizeData(x)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+})
+
+invisible(gc())
+features <- SelectIntegrationFeatures(object.list = seurat.list)
+seurat.list <- lapply(X = seurat.list, FUN = function(x) {
+    x <- ScaleData(x, features = features, verbose = FALSE)
+    x <- RunPCA(x, features = features, verbose = FALSE)
+})
+
+
+invisible(gc())
+anchors <- FindIntegrationAnchors(object.list = seurat.list, anchor.features = features, reduction = "rpca")
+obj <- IntegrateData(anchorset = anchors)
+rm(anchors)
+DefaultAssay(obj) <- "integrated"
+obj <- ScaleData(obj, verbose = FALSE)
+obj <- RunPCA(obj, npcs = 30, verbose = FALSE)
+obj <- RunUMAP(obj, reduction = "pca", dims = 1:30, min.dist = 1.5)
+obj <- FindNeighbors(obj, reduction = "pca", dims = 1:30)
+obj <- FindClusters(obj, resolution = c(1))
+
+invisible(gc())
+DefaultAssay(obj) <- "RNA"
+saveRDS(obj, file.path(dir.results, "rdata/non_filt_integrated.rds"))
+
+DimPlot(object = obj, group.by = "orig.ident")
+DimPlot(object = obj, group.by = "seurat_clusters")
+
+```
+
+## Check cluster quality
+
+```{r}
+
+Idents(obj) <- "seurat_clusters"
+Stacked_VlnPlot(object = obj, features = c("nCount_RNA","nFeature_RNA","percent_mito"),angle.x = 90, pt.size = 0.005,base.size = 12)
+
+```
+
+
+## Remove low quality cells
+
+```{r fig.width=10, fig.height=7}
+
+invisible(gc())
+Idents(obj) <- "seurat_clusters"
+obj <- subset(obj, idents = c(2), invert = TRUE)
+DefaultAssay(obj) <- "integrated"
+obj <- RunPCA(obj, npcs = 30)
+obj <- RunUMAP(obj, dims = 1:30, min.dist = 2, reduction = "pca")
+obj <- FindNeighbors(obj, dims = 1:30, reduction = "pca")
+obj <- FindClusters(obj, resolution = 1)
+saveRDS(obj, file.path(dir.results, "rdata/filt_integrated.rds"))
+
+DefaultAssay(obj) <- "RNA"
+dim(obj)
+
+DimPlot(object = obj, group.by = "seurat_clusters")
+
+```
+
+## Check cluster quality
+
+```{r}
+
+Idents(obj) <- "seurat_clusters"
+Stacked_VlnPlot(object = obj, features = c("nCount_RNA","nFeature_RNA","percent_mito"),angle.x = 90, pt.size = 0.005,base.size = 12)
+
+```
+
+# Session info
+
+```{r}
+
+sessionInfo()
+
+```
+
